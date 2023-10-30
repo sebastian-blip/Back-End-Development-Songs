@@ -51,3 +51,87 @@ def parse_json(data):
 ######################################################################
 # INSERT CODE HERE
 ######################################################################
+
+@app.route("/health", methods=["GET"])
+def healt():
+    return jsonify(dict(status="OK")), 200
+
+
+@app.route("/count", methods=["GET"])
+def count():
+    count = db.songs.count_documents({})
+    return jsonify(dict(count=count)), 200
+
+
+@app.route("/song", methods=["GET"])
+def get_songs():
+    songs = db.songs.find({})
+    songs = list(songs)
+    if not songs:
+        return json_util.dumps(songs), 404
+    songs = {'songs': songs}
+    return json_util.dumps(songs), 200
+
+@app.route("/song/<int:id>", methods=["GET"])
+def get_songs_by_id(id):
+    songs = db.songs.find({'id': id})
+    if not songs:
+        return json_util.dumps(songs), 404
+    return json_util.dumps(songs[0]), 200
+
+@app.route("/song", methods=["POST"])
+def create_song():
+
+    song = request.json
+
+    if not song:
+        return {"message": "Invalid input parameter"}, 422
+    
+    existing_song = db.songs.find_one({"id": song["id"]})
+    if existing_song:
+        return {
+            "Message": f"song with id {song['id']} already present"
+            }, 302
+    try:
+        data = db.songs.insert_one(song)
+        inserted_id = str(data.inserted_id)
+        print(data)
+    
+    except NameError:
+        return {"message": "data not defined"}, 500
+
+    return jsonify({'inserted id':inserted_id}), 201
+
+
+@app.route("/song/<int:id>", methods=["PUT"])
+def update_song(id):
+
+    song = request.json
+
+    if not song:
+        return {"message": "Invalid input parameter"}, 422
+
+    existing_song = db.songs.find_one({"id": id})
+    if existing_song:
+        filter = {"id": id}
+        update = {"$set": song}
+        result = db.songs.update_one(filter, update)
+        if result.modified_count > 0:
+           updated_document = db.songs.find_one(filter)
+           return json_util.dumps(updated_document), 200
+        else:
+            return {"message":"song found, but nothing updated"}, 200
+    
+    return {"message": "song not found"}, 404
+
+
+@app.route("/song/<int:id>", methods=["DELETE"])
+def delete_song(id):
+
+
+    filter = {"id": id}
+    result = db.song.delete_one(filter)
+    if result.deleted_count > 0:
+        return {}, 204
+    else:
+        return {"message": "song not found"}, 404
